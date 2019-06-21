@@ -54,7 +54,11 @@ network_load_test.  network_test can be run at any scale above 2 nodes to measur
 the capability of a network for complex communication patterns.
 
 network_load_test should not be run at much less than full system scale.  The results
-will likely not be representative if the network has significant head room.  
+will likely not be representative if the network has significant head room.  Additionally,
+the spirit of this benchmark is that it is run with default network and MPI configuration
+to match what will typically be used in production.  It is recommended that for whatever
+network and MPI configuration is used the baseline performance for communication be
+inspected with network_test prior to measuring congestion impacts with network_load_test.
 
 The primary tuning parameter users can use is the number of processes per node (PPN).
 The higher the PPN the more the benchmark will push the network.  For the network_test,

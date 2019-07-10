@@ -20,7 +20,7 @@
 #include <math.h>
 #include <network_test.h>
 
-#define VERSION 1.0
+#define VERSION 1.1
 
 #define NUM_NETWORK_TESTS 3
 #define NUM_CONGESTOR_TESTS 4
@@ -530,13 +530,13 @@ int build_subcomms(int ncongestor_tests, CommConfig_t *config, CommNodes_t *node
      for (i = 0; i < nodes->nnodes; i++) {
           allnodes[i] = i;
      }
-#ifdef FIXED_RAND_SEED
-     int seed = RSEED;
-#else
+
      time_t now = time(NULL);
      MPI_Bcast(&now, 1, MPI_UNSIGNED_LONG, 0, MPI_COMM_WORLD);
      int seed = (int)now;
-#endif
+
+     /* to use a fixed seed for debug purposes, uncomment the following line */
+     //seed = RSEED;
      shuffle(allnodes, nodes->nnodes, seed, 0);
 
      /* pull out the different node types */

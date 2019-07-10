@@ -37,7 +37,7 @@ make network FLAGS="-DVERBOSE"
 
 # Running #
 
-Run example at 64 node of BDW 18 parts (2 per node) fully packed:
+Run example at 64 nodes of BDW 18 parts (2 per node) fully packed on a Cray/ALPS system:
 
 aprun -n 2304 -N 36 ./network_test
 
@@ -49,20 +49,21 @@ Each application has no arguments.
 
 # Benchmarking Practices
 
-GPCNeT applications should ideally be run at full system scale, in particular
-network_load_test.  network_test can be run at any scale above 2 nodes to measure
-the capability of a network for complex communication patterns.
+GPCNeT applications should be run at full system scale, in particular
+network_load_test. network_test can be run at any scale above 2 nodes to
+measure the capability of a network for complex communication patterns.
 
-network_load_test should not be run at much less than full system scale.  The results
+network_load_test should not be run at much less than full system scale 
+(ie, run on at least 95% of system nodes).  The results
 will likely not be representative if the network has significant head room.  Additionally,
 the spirit of this benchmark is that it is run with default network and MPI configuration
 to match what will typically be used in production.  It is recommended that for whatever
-network and MPI configuration is used the baseline performance for communication be
+network and MPI configuration is used, the baseline performance for communication be
 inspected with network_test prior to measuring congestion impacts with network_load_test.
 
 The primary tuning parameter users can use is the number of processes per node (PPN).
 The higher the PPN the more the benchmark will push the network.  For the network_test,
-higher PPN will push bandwidth per node (note the benchmark reports bwandwidth per rank)
+higher PPN will push bandwidth per node (note the benchmark reports bandwidth per rank)
 higher and will produce more realistic latency numbers from an HPC application perspective.
 For network_load_test, higher PPN makes congestors more intense and sensitive traffic
 more sensitive.  The recommended practice is to run either application at three
@@ -80,6 +81,11 @@ values of PPN:
 The results at N PPN will provide the most signal for congestion.
 
 # Modifying Defaults #
+
+Modifications to the default settings should not be done for official benchmarks.  Official
+benchmarks should be run with default production settings for the system (network, compute nodes,
+MPI library etc.) with defaukt settings in GPCNeT.  There are many ways to modify the behavior
+of GPCNeT, however, for detailed investigations.
 
 For network_load_test, the intensity of
 congestors can be lessened by reducing the number of processes per node or

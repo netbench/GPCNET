@@ -21,7 +21,7 @@
 #include <time.h>
 #include <network_test.h>
 
-#define VERSION 1.0
+#define VERSION 1.1
 
 #define NUM_NETWORK_TESTS 8
 

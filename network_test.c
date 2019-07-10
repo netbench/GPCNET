@@ -106,6 +106,8 @@ int network_test_setup(CommTest_t req_test, int *ntests, int *nrands, int *niter
           snprintf(tname, nl, "%s (%4i B)", "Multiple Alltoall", (int)(sizeof(double)*A2A_MSG_COUNT));
           snprintf(tunits, nl, "%s", "MiB/s/rank");
           break;
+     default:
+          break;
      }
 
      return 0;

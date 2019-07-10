@@ -113,6 +113,8 @@ int network_test_setup(CommTest_t req_test, int *ntests, int *nrands, int *niter
           snprintf(tname, nl, "%s (8 B)", "Multiple Allreduce");
           snprintf(tunits, nl, "%s", "usec");
           break;
+     default:
+          break;
      }
 
      return 0;
@@ -271,6 +273,8 @@ int congestor_test_setup(CommTest_t req_test, int a2aiters, int incastiters, int
           *niters = bcastiters;
           snprintf(tname, nl, "%s (%i B)", "Get Bcast", (int)(sizeof(double)*BCAST_MSG_COUNT));
           snprintf(tunits, nl, "%s", "MiB/s/rank");
+          break;
+     default:
           break;
      }
 

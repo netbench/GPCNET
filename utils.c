@@ -21,7 +21,7 @@
 
 void die(char* errmsg)
 {
-     fprintf(stderr, errmsg);
+     fprintf(stderr, "%s\n", errmsg);
      exit(EXIT_FAILURE);
 }
 
@@ -33,7 +33,7 @@ void mpi_error(int ierr)
      int err_length;
 
      MPI_Error_string(ierr, err_string, &err_length);
-     fprintf(stderr, err_string);
+     fprintf(stderr, "%s\n", err_string);
      exit(1);
 }
 
@@ -424,6 +424,8 @@ int print_header(CommConfig_t *config, int type, CommTest_t ntype)
                case A2A_BANDWIDTH:
                     snprintf(nname, nl, "Multiple Alltoall");
                     break;
+               default:
+                    break;
                }
 
 #ifdef VERBOSE
@@ -690,6 +692,8 @@ int create_perf_filename(CommTest_t req_test, CommTest_t other_test, int isbasel
      case TEST_CONGESTORS:
           snprintf(othern, ol, "_with_congestors");
           break;
+     default:
+          break;
      }
 
      switch (req_test) {
@@ -731,6 +735,8 @@ int create_perf_filename(CommTest_t req_test, CommTest_t other_test, int isbasel
           break;
      case RMA_BCAST_CONGESTOR:
           snprintf(*fname, fl, "get_bcast_congestor%s%s.%s", bases, othern, suffix);
+          break;
+     default:
           break;
      }
 
@@ -821,6 +827,8 @@ int summarize_pairs_performance(CommConfig_t *config, MPI_Comm comm, char *lnode
      case RMA_BCAST_CONGESTOR:
           snprintf(tname, tl, "get_bcast_congestor");
           snprintf(tunits, tl, "MiB/s");
+          break;
+     default:
           break;
      }
 

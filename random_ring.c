@@ -111,6 +111,8 @@ int random_ring(CommConfig_t *config, int norand, int n_measurements, int nrands
                     p2p_neighbors(config, left_neighbor, right_neighbor, niters, global_comm, 
                                   comm, &myperf_vals_hires[poffset_hires], &myperf_vals[poffset]);
                     break;
+               default:
+                    break;
                }
 
                /* add a record of this test's performance */

@@ -182,6 +182,8 @@ int congestor(CommConfig_t *config, int n_measurements, int niters, MPI_Comm tes
                case RMA_BCAST_CONGESTOR:
                     rma_bcast_congestor(config, test_comm, test_myrank, test_nranks);
                     break;
+               default:
+                    break;
                }
 
                if (i >= 0 && record_perf) {

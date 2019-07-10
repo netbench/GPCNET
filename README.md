@@ -84,7 +84,7 @@ The results at N PPN will provide the most signal for congestion.
 
 Modifications to the default settings should not be done for official benchmarks.  Official
 benchmarks should be run with default production settings for the system (network, compute nodes,
-MPI library etc.) with defaukt settings in GPCNeT.  There are many ways to modify the behavior
+MPI library etc.) with default settings in GPCNeT.  There are many ways to modify the behavior
 of GPCNeT, however, for detailed investigations.
 
 For network_load_test, the intensity of

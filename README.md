@@ -61,9 +61,12 @@ to match what will typically be used in production.  It is recommended that for 
 network and MPI configuration is used, the baseline performance for communication be
 inspected with network_test prior to measuring congestion impacts with network_load_test.
 
-The primary tuning parameter users can use is the number of processes per node (PPN).
+The primary tuning parameter users can use is the number of processes per NIC (PPN).
+We refer to process per NIC (rather than process per node) because modern nodes span a wide range of capabilities.  
+Consider a dual socket node with 2 NICS and 6 GPUs vs a single socket single NIC node. 
+The number of NICs is a reasonable proxy for expected communication capability.
 The higher the PPN the more the benchmark will push the network.  For the network_test,
-higher PPN will push bandwidth per node (note the benchmark reports bandwidth per rank)
+higher PPN will push bandwidth per NIC (note the benchmark reports bandwidth per rank)
 higher and will produce more realistic latency numbers from an HPC application perspective.
 For network_load_test, higher PPN makes congestors more intense and sensitive traffic
 more sensitive.  The recommended practice is to run either application at three
@@ -88,7 +91,7 @@ MPI library etc.) with default settings in GPCNeT.  There are many ways to modif
 of GPCNeT, however, for detailed investigations.
 
 For network_load_test, the intensity of
-congestors can be lessened by reducing the number of processes per node or
+congestors can be lessened by reducing the number of processes per NIC or
 modifying the message sizes of congestors.
 
 Tuning of message sizes and loop counts is done with the defs at the beginning of

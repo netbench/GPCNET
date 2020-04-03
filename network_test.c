@@ -21,7 +21,7 @@
 #include <time.h>
 #include <network_test.h>
 
-#define VERSION 1.1
+#define VERSION 1.2
 
 #define NUM_NETWORK_TESTS 8
 
@@ -44,7 +44,7 @@
 
 CommTest_t network_tests_list[NUM_NETWORK_TESTS];
 
-int network_test_setup(CommTest_t req_test, int *ntests, int *nrands, int *niters, 
+int network_test_setup(CommTest_t req_test, int *ntests, int *nrands, int *niters,
                        char *tname, char *tunits)
 {
      int nl=64;
@@ -124,8 +124,8 @@ int main(int argc, char* argv[])
      int itest, niters, ntests, nrands, i;
      int *allnodes;
 
-     init_mpi(&test_config, &nodes, &argc, &argv, BW_MSG_COUNT, BW_MSG_COUNT, A2A_MSG_COUNT, 
-              1, 1, BW_OUTSTANDING);
+     init_mpi(&test_config, &nodes, &argc, &argv, BW_MSG_COUNT, BW_MSG_COUNT, A2A_MSG_COUNT,
+              1, 1, 1, BW_OUTSTANDING);
 
      if (nodes.nnodes < 2) {
           if (test_config.myrank == 0) {
@@ -160,26 +160,26 @@ int main(int argc, char* argv[])
           printf("  Test with %i MPI ranks (%i nodes)\n\n", test_config.nranks, nodes.nnodes);
           printf("  Legend\n   RR = random ring communication pattern\n   Nat = natural ring communication pattern\n   Lat = latency\n   BW = bandwidth\n   BW+Sync = bandwidth with barrier");
      }
-    
+
      /* gather the baseline performance */
      results.distribution = NULL;
      print_header(&test_config, 0, 0);
      for (itest = 0; itest < NUM_NETWORK_TESTS; itest++) {
 
           network_test_setup(network_tests_list[itest], &ntests, &nrands, &niters, tname, tunits);
-          if (network_tests_list[itest] != A2A_BANDWIDTH && network_tests_list[itest] 
+          if (network_tests_list[itest] != A2A_BANDWIDTH && network_tests_list[itest]
               != P2P_BANDWIDTH_NAT && network_tests_list[itest] != ALLREDUCE_LATENCY) {
-               random_ring(&test_config, 0, ntests, nrands, niters, network_tests_list[itest], 
+               random_ring(&test_config, 0, ntests, nrands, niters, network_tests_list[itest],
                            TEST_NULL, test_comm, MPI_COMM_WORLD, &results);
           } else if (network_tests_list[itest] == P2P_BANDWIDTH_NAT) {
-               random_ring(&test_config, 1, ntests, nrands, niters, P2P_BANDWIDTH, TEST_NULL, 
+               random_ring(&test_config, 1, ntests, nrands, niters, P2P_BANDWIDTH, TEST_NULL,
                            test_comm, MPI_COMM_WORLD, &results);
           } else if (network_tests_list[itest] == A2A_BANDWIDTH) {
                a2a_test(&test_config, ntests, niters, test_comm, MPI_COMM_WORLD, &results);
           } else if (network_tests_list[itest] == ALLREDUCE_LATENCY) {
                allreduce_test(&test_config, ntests, niters, test_comm, MPI_COMM_WORLD, &results);
           }
-    
+
           int from_min = 0;
           if (network_tests_list[itest] == P2P_LATENCY || network_tests_list[itest] == RMA_LATENCY ||
               network_tests_list[itest] == ALLREDUCE_LATENCY) from_min = 1;

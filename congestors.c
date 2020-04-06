@@ -22,23 +22,23 @@
 int p2p_incast_congestor(CommConfig_t *config, MPI_Comm comm, int myrank, int comm_ranks)
 {
      int i;
-     MPI_Request *request_list = NULL; 
+     MPI_Request *request_list = NULL;
      request_list = malloc(sizeof(MPI_Request) * comm_ranks);
      if (request_list == NULL) {
           die("Failed to allocate request_list in p2p_incast_congestor()\n");
      }
 
-     if(myrank == 0) {    
-       
+     if(myrank == 0) {
+
           for(i=1; i < comm_ranks; i++) {
-               mpi_error(MPI_Irecv(&config->a2a_rbuffer[i * config->incast_cnt], config->incast_cnt, 
-                                   MPI_DOUBLE, i, 987, comm, &request_list[i-1])); 
-          } 
+               mpi_error(MPI_Irecv(&config->a2a_rbuffer[i * config->incast_cnt], config->incast_cnt,
+                                   MPI_DOUBLE, i, 987, comm, &request_list[i-1]));
+          }
           mpi_error(MPI_Waitall(comm_ranks-1, request_list, MPI_STATUS_IGNORE));
 
      } else {
 
-          mpi_error(MPI_Send(config->a2a_sbuffer, config->incast_cnt, MPI_DOUBLE, 0, 987, comm)); 
+          mpi_error(MPI_Send(config->a2a_sbuffer, config->incast_cnt, MPI_DOUBLE, 0, 987, comm));
 
      }
      free(request_list);
@@ -49,22 +49,22 @@ int p2p_incast_congestor(CommConfig_t *config, MPI_Comm comm, int myrank, int co
 int p2p_bcast_congestor(CommConfig_t *config, MPI_Comm comm, int myrank, int comm_ranks)
 {
      int i;
-     MPI_Request *request_list = NULL; 
+     MPI_Request *request_list = NULL;
      request_list = malloc(sizeof(MPI_Request) * comm_ranks);
      if (request_list == NULL) {
           die("Failed to allocate request_list in p2p_bcast_congestor()\n");
      }
 
-     if(myrank == 0) {    
-       
+     if(myrank == 0) {
+
           for(i=1; i < comm_ranks; i++) {
-               mpi_error(MPI_Isend(config->p2p_buffer, config->bcast_cnt, MPI_DOUBLE, i, 987, comm, &request_list[i-1])); 
-          } 
+               mpi_error(MPI_Isend(config->p2p_buffer, config->bcast_cnt, MPI_DOUBLE, i, 987, comm, &request_list[i-1]));
+          }
           mpi_error(MPI_Waitall(comm_ranks-1, request_list, MPI_STATUS_IGNORE));
 
      } else {
 
-          mpi_error(MPI_Recv(config->p2p_buffer, config->bcast_cnt, MPI_DOUBLE, 0, 987, comm, MPI_STATUS_IGNORE)); 
+          mpi_error(MPI_Recv(config->p2p_buffer, config->bcast_cnt, MPI_DOUBLE, 0, 987, comm, MPI_STATUS_IGNORE));
 
      }
      free(request_list);
@@ -76,7 +76,7 @@ int a2a_congestor(CommConfig_t *config, MPI_Comm comm, int myrank, int comm_rank
 {
      int i, pof2, src, dst;
      i = 1;
-  
+
      /* comm_size a power-of-two? */
      while (i < comm_ranks)
           i *= 2;
@@ -87,7 +87,7 @@ int a2a_congestor(CommConfig_t *config, MPI_Comm comm, int myrank, int comm_rank
 
      /* do the pairwise exchanges */
      for(i = 0; i < comm_ranks; i++) {
- 
+
           if (pof2 == 1) {
                /* use exclusive-or algorithm */
                src = dst = myrank ^ i;
@@ -95,20 +95,28 @@ int a2a_congestor(CommConfig_t *config, MPI_Comm comm, int myrank, int comm_rank
                src = (myrank - i + comm_ranks) % comm_ranks;
                dst = (myrank + i) % comm_ranks;
           }
-    
-          mpi_error(MPI_Sendrecv(&config->a2a_sbuffer[i * config->a2a_cnt], config->a2a_cnt, MPI_DOUBLE, 
-                                 dst, 987, &config->a2a_rbuffer[i * config->a2a_cnt], config->a2a_cnt, MPI_DOUBLE, 
+
+          mpi_error(MPI_Sendrecv(&config->a2a_sbuffer[i * config->a2a_cnt], config->a2a_cnt, MPI_DOUBLE,
+                                 dst, 987, &config->a2a_rbuffer[i * config->a2a_cnt], config->a2a_cnt, MPI_DOUBLE,
                                  src, 987, comm, MPI_STATUS_IGNORE));
      }
 
      return 0;
 }
 
+int allreduce_congestor(CommConfig_t *config, MPI_Comm comm, int myrank, int comm_ranks)
+{
+     mpi_error(MPI_Allreduce(config->ar_sbuffer, config->ar_rbuffer, config->ar_cnt,
+                             MPI_DOUBLE, MPI_SUM, comm));
+
+     return 0;
+}
+
 int rma_incast_congestor(CommConfig_t *config, MPI_Comm comm, int myrank, int comm_ranks)
 {
-     if (myrank != 0) {    
-       
-          mpi_error(MPI_Put(&config->rma_a2a_buffer[0], config->incast_cnt, MPI_DOUBLE, 0, 
+     if (myrank != 0) {
+
+          mpi_error(MPI_Put(&config->rma_a2a_buffer[0], config->incast_cnt, MPI_DOUBLE, 0,
                             (MPI_Aint)(myrank * config->incast_cnt), config->incast_cnt, MPI_DOUBLE, config->rma_a2a_window));
           mpi_error(MPI_Win_flush(0, config->rma_a2a_window));
 
@@ -119,9 +127,9 @@ int rma_incast_congestor(CommConfig_t *config, MPI_Comm comm, int myrank, int co
 
 int rma_bcast_congestor(CommConfig_t *config, MPI_Comm comm, int myrank, int comm_ranks)
 {
-     if (myrank != 0) {    
+     if (myrank != 0) {
 
-          mpi_error(MPI_Get(&config->rma_buffer[0], config->bcast_cnt, MPI_DOUBLE, 0, 0, 
+          mpi_error(MPI_Get(&config->rma_buffer[0], config->bcast_cnt, MPI_DOUBLE, 0, 0,
                             config->bcast_cnt, MPI_DOUBLE, config->rma_window));
           mpi_error(MPI_Win_flush(0, config->rma_window));
 
@@ -130,7 +138,7 @@ int rma_bcast_congestor(CommConfig_t *config, MPI_Comm comm, int myrank, int com
      return 0;
 }
 
-int congestor(CommConfig_t *config, int n_measurements, int niters, MPI_Comm test_comm, CommTest_t req_test, 
+int congestor(CommConfig_t *config, int n_measurements, int niters, MPI_Comm test_comm, CommTest_t req_test,
               int record_perf, double * perfvals, double * perfval, int *real_n_measurements)
 {
      int i, m, test_myrank, test_nranks;
@@ -161,7 +169,7 @@ int congestor(CommConfig_t *config, int n_measurements, int niters, MPI_Comm tes
           timeout = MPI_Wtime() - timeout_t1;
           mpi_error(MPI_Iallreduce(MPI_IN_PLACE, &timeout, 1, MPI_DOUBLE, MPI_MAX, test_comm, &req));
 
-          if (record_perf) mpi_error(MPI_Barrier(test_comm)); 
+          if (record_perf) mpi_error(MPI_Barrier(test_comm));
           for (i = -1; i < niters; i++) {
                if (i == 0) bt1 = MPI_Wtime();
                if (i >= 0) clock_gettime(CLOCK_MONOTONIC, &t1);
@@ -169,6 +177,9 @@ int congestor(CommConfig_t *config, int n_measurements, int niters, MPI_Comm tes
                switch (req_test) {
                case A2A_CONGESTOR:
                     a2a_congestor(config, test_comm, test_myrank, test_nranks);
+                    break;
+               case ALLREDUCE_CONGESTOR:
+                    allreduce_congestor(config, test_comm, test_myrank, test_nranks);
                     break;
                case P2P_INCAST_CONGESTOR:
                     p2p_incast_congestor(config, test_comm, test_myrank, test_nranks);
@@ -208,11 +219,23 @@ int congestor(CommConfig_t *config, int n_measurements, int niters, MPI_Comm tes
                for (i = 0; i < *real_n_measurements*niters; i++) {
                     perfvals[i] = (double)(sizeof(double) * config->a2a_cnt * (test_nranks-1)) / (perfvals[i] * 1024. * 1024.);
                }
-               perfval[0] = (double)(sizeof(double) * config->a2a_cnt * *real_n_measurements*niters * 
+               perfval[0] = (double)(sizeof(double) * config->a2a_cnt * *real_n_measurements*niters *
                                      (test_nranks-1)) / (bt * 1024. * 1024.);
 
+          } else if (req_test == ALLREDUCE_CONGESTOR) {
+
+               /* we report uni-directional BW in MiB/s/rank.  we assume an algorithm,
+                  like recursive halving/recursive doubling, that has each rank send 2X the msglen in the limit
+                  of large N_ranks.
+               */
+               for (i = 0; i < *real_n_measurements*niters; i++) {
+                    perfvals[i] = (double)(sizeof(double) * config->ar_cnt * 2.) / (perfvals[i] * 1024. * 1024.);
+               }
+               perfval[0] = (double)(sizeof(double) * config->ar_cnt * *real_n_measurements*niters * 2.) /
+                                     (bt * 1024. * 1024.);
+
           } else if (req_test == P2P_INCAST_CONGESTOR || req_test == RMA_INCAST_CONGESTOR) {
-      
+
                /* we report uni-directional BW in MiB/s/rank */
                if (test_myrank == 0) {
                     for (i = 0; i < *real_n_measurements*niters; i++) {
@@ -223,12 +246,12 @@ int congestor(CommConfig_t *config, int n_measurements, int niters, MPI_Comm tes
                     for (i = 0; i < *real_n_measurements*niters; i++) {
                          perfvals[i] = (double)(sizeof(double) * config->incast_cnt) / (perfvals[i] * 1024. * 1024.);
                     }
-                    perfval[0] = (double)(sizeof(double) * config->incast_cnt * *real_n_measurements*niters) / 
+                    perfval[0] = (double)(sizeof(double) * config->incast_cnt * *real_n_measurements*niters) /
                          (bt * 1024. * 1024.);
                }
 
           } else if (req_test == P2P_BCAST_CONGESTOR || req_test == RMA_BCAST_CONGESTOR) {
-      
+
                /* we report uni-directional BW in MiB/s/rank */
                if (test_myrank == 0) {
                     for (i = 0; i < *real_n_measurements*niters; i++) {
@@ -239,7 +262,7 @@ int congestor(CommConfig_t *config, int n_measurements, int niters, MPI_Comm tes
                     for (i = 0; i < *real_n_measurements*niters; i++) {
                          perfvals[i] = (double)(sizeof(double) * config->bcast_cnt) / (perfvals[i] * 1024. * 1024.);
                     }
-                    perfval[0] = (double)(sizeof(double) * config->bcast_cnt * *real_n_measurements*niters) / 
+                    perfval[0] = (double)(sizeof(double) * config->bcast_cnt * *real_n_measurements*niters) /
                          (bt * 1024. * 1024.);
                }
 

@@ -38,16 +38,16 @@ void mpi_error(int ierr)
 }
 
 /* simple string sorting routine for ordering hostnames */
-int cstring_cmp(const void *a, const void *b) 
-{ 
+int cstring_cmp(const void *a, const void *b)
+{
      const char **ia = (const char **)a;
      const char **ib = (const char **)b;
      return strcmp(*ia, *ib);
-} 
+}
 
 /* initialize MPI, detect node+rank layout, and setup various testing options  */
-int init_mpi(CommConfig_t *config, CommNodes_t *nodes, int *argc, char ***argv, int rmacnt, int p2pcnt, 
-             int a2acnt, int incastcnt, int bcastcnt, int bw_outstanding)
+int init_mpi(CommConfig_t *config, CommNodes_t *nodes, int *argc, char ***argv, int rmacnt, int p2pcnt,
+             int a2acnt, int incastcnt, int bcastcnt, int allreducecnt, int bw_outstanding)
 {
      int i, ierr, nranks, hname_len;
      char local_hname[MPI_MAX_PROCESSOR_NAME], last_hname[MPI_MAX_PROCESSOR_NAME];
@@ -57,6 +57,7 @@ int init_mpi(CommConfig_t *config, CommNodes_t *nodes, int *argc, char ***argv, 
      config->p2pbw_cnt      = p2pcnt;
      config->rmabw_cnt      = rmacnt;
      config->a2a_cnt        = a2acnt;
+     config->ar_cnt         = allreducecnt;
      config->incast_cnt     = incastcnt;
      config->bcast_cnt      = bcastcnt;
      config->rma_window     = MPI_WIN_NULL;
@@ -64,6 +65,8 @@ int init_mpi(CommConfig_t *config, CommNodes_t *nodes, int *argc, char ***argv, 
      config->p2p_buffer     = NULL;
      config->a2a_sbuffer    = NULL;
      config->a2a_rbuffer    = NULL;
+     config->ar_sbuffer     = NULL;
+     config->ar_rbuffer     = NULL;
 
      mpi_error(MPI_Init(argc, argv));
      mpi_error(MPI_Comm_rank(MPI_COMM_WORLD, &config->myrank));
@@ -86,7 +89,7 @@ int init_mpi(CommConfig_t *config, CommNodes_t *nodes, int *argc, char ***argv, 
      }
 
      mpi_error(MPI_Get_processor_name(local_hname, &hname_len));
-     mpi_error(MPI_Allgather(local_hname, MPI_MAX_PROCESSOR_NAME, MPI_CHAR, all_hnames, 
+     mpi_error(MPI_Allgather(local_hname, MPI_MAX_PROCESSOR_NAME, MPI_CHAR, all_hnames,
                              MPI_MAX_PROCESSOR_NAME, MPI_CHAR, MPI_COMM_WORLD));
 
      for (i = 0; i < config->nranks; i++) {
@@ -251,7 +254,7 @@ int finalize_mpi(CommConfig_t *config, CommNodes_t *nodes)
           CommNode_t *prev = tmp->last;
           free(tmp);
           tmp = prev;
-     } 
+     }
 
      if (config->rma_window != MPI_WIN_NULL) {
           mpi_error(MPI_Win_free(&config->rma_window));
@@ -263,6 +266,8 @@ int finalize_mpi(CommConfig_t *config, CommNodes_t *nodes)
      if (config->p2p_buffer != NULL ) MPI_Free_mem(config->p2p_buffer);
      if (config->a2a_sbuffer != NULL) MPI_Free_mem(config->a2a_sbuffer);
      if (config->a2a_rbuffer != NULL) MPI_Free_mem(config->a2a_rbuffer);
+     if (config->ar_sbuffer != NULL ) MPI_Free_mem(config->ar_sbuffer);
+     if (config->ar_rbuffer != NULL ) MPI_Free_mem(config->ar_rbuffer);
      mpi_error(MPI_Finalize());
 
      return 0;
@@ -285,7 +290,7 @@ void shuffle(int *list, int size, int seed, int call)
 
 /* separate allocation for A2A buffers since they are optional and large */
 int a2a_buffers(CommConfig_t *config, MPI_Comm comm)
-{  
+{
      int ierr, comm_size, count;
 
      count = config->a2a_cnt;
@@ -309,17 +314,42 @@ int a2a_buffers(CommConfig_t *config, MPI_Comm comm)
      return 0;
 }
 
+/* separate allocation for allreduce buffers since they are optional and large */
+int allreduce_buffers(CommConfig_t *config, MPI_Comm comm)
+{
+     int ierr, comm_size, count;
+
+     count = config->ar_cnt;
+
+     mpi_error(MPI_Comm_size(comm, &comm_size));
+     MPI_Aint length = sizeof(double) * count;
+
+     ierr = MPI_Alloc_mem(length, MPI_INFO_NULL, &config->ar_sbuffer);
+     if (ierr != MPI_SUCCESS) {
+          die("Failed to allocate a2a_sbuffer in a2a_buffers()\n");
+     }
+     ierr = MPI_Alloc_mem(length, MPI_INFO_NULL, &config->ar_rbuffer);
+     if (ierr != MPI_SUCCESS) {
+          die("Failed to allocate a2a_rbuffer in a2a_buffers()\n");
+     }
+
+     memset(config->ar_sbuffer, 0, length);
+     memset(config->ar_rbuffer, 0, length);
+
+     return 0;
+}
+
 int print_results(CommConfig_t *config, int localrank, int havedata, int from_min, char *name, char *units, CommResults_t * results)
 {
      if (havedata && localrank == 0) {
           double avgworst = results->avgmin;
           if (from_min) avgworst = results->avgmax;
 #ifdef VERBOSE
-          snprintf(print_buffer, TBLSIZE+1, "| %31.31s | %12.1f | %12.1f | %12.1f | %12.1f | %12.1f | %12.1f | %12.12s |", 
+          snprintf(print_buffer, TBLSIZE+1, "| %31.31s | %12.1f | %12.1f | %12.1f | %12.1f | %12.1f | %12.1f | %12.12s |",
                    name, results->minval, results->maxval, results->avg, avgworst, results->percentile_99,
                    results->percentile_999, units);
 #else
-          snprintf(print_buffer, TBLSIZE+1, "| %31.31s | %12.1f | %12.1f | %12.12s |", 
+          snprintf(print_buffer, TBLSIZE+1, "| %31.31s | %12.1f | %12.1f | %12.12s |",
                    name, results->avg, results->percentile_99, units);
 #endif
      }
@@ -342,11 +372,11 @@ int print_results(CommConfig_t *config, int localrank, int havedata, int from_mi
 
 int print_comparison_results(CommConfig_t *config, int localrank, int havedata, int from_min,
                              char *name, CommResults_t * base_results, CommResults_t * results)
-{  
+{
      int fl=16;
 
      if (havedata && localrank == 0) {
-    
+
           char b99[fl], bavg[fl], n99[fl], navg[fl];
           snprintf(n99, fl, "%12.1f", results->percentile_99);
           snprintf(navg, fl, "%12.1f", results->avg);
@@ -438,10 +468,10 @@ int print_header(CommConfig_t *config, int type, CommTest_t ntype)
                printf("\n+------------------------------------------------------------------------------+\n");
                printf("| %9.9s%57.57s%10.10s |\n", " ", "Network Tests running with Congestion Tests - Key Results", " ");
                printf("+---------------------------------+--------------------------------------------+\n");
-               printf("| %31.31s | %42.42s |\n", 
+               printf("| %31.31s | %42.42s |\n",
                       "Name", "Congestion Impact Factor");
                printf("+---------------------------------+----------------------+---------------------+\n");
-               printf("| %31.31s | %20.20s | %19.19s |\n", 
+               printf("| %31.31s | %20.20s | %19.19s |\n",
                       " ", "Avg", "99%");
                printf("+---------------------------------+----------------------+---------------------+\n");
           }
@@ -449,10 +479,10 @@ int print_header(CommConfig_t *config, int type, CommTest_t ntype)
           if (type < 3) {
                printf("%s\n",table_innerbar);
 #ifdef VERBOSE
-               printf("| %31.31s | %12.12s | %12.12s | %12.12s | %12.12s | %12.12s | %12.12s | %12.12s |\n", 
+               printf("| %31.31s | %12.12s | %12.12s | %12.12s | %12.12s | %12.12s | %12.12s | %12.12s |\n",
                       "Name", "Min", "Max", "Avg", "Avg(Worst)", "99%", "99.9%", "Units");
 #else
-               printf("| %31.31s | %12.12s | %12.12s | %12.12s |\n", 
+               printf("| %31.31s | %12.12s | %12.12s | %12.12s |\n",
                       "Name", "Avg", "99%", "Units");
 #endif
                printf("%s\n",table_innerbar);
@@ -464,7 +494,7 @@ int print_header(CommConfig_t *config, int type, CommTest_t ntype)
 }
 
 /* summarize performance stats */
-int summarize_performance(CommConfig_t *config, double *myperf_vals_hires, double *myperf_vals, 
+int summarize_performance(CommConfig_t *config, double *myperf_vals_hires, double *myperf_vals,
                           int total_vals_hires, int total_vals, int from_min, MPI_Comm comm, CommResults_t *results)
 {
      int i, j, myrank, nranks;
@@ -525,12 +555,12 @@ int summarize_performance(CommConfig_t *config, double *myperf_vals_hires, doubl
           if (from_min == 1) {
                for (j = 0; j < results->ndist_buckets; j++) {
                     cnt += results->distribution[j];
-        
+
                     if (cnt >= cnt_99 && f99 == 0) {
                          results->percentile_99 = hires_min + (double)(j+1)*dres;
                          f99 = 1;
                     }
-        
+
                     if (cnt >= cnt_999 && f999 == 0) {
                          results->percentile_999 = hires_min + (double)(j+1)*dres;
                          f999 = 1;
@@ -539,12 +569,12 @@ int summarize_performance(CommConfig_t *config, double *myperf_vals_hires, doubl
           } else {
                for (j = results->ndist_buckets-1; j >=0; j--) {
                     cnt += results->distribution[j];
-        
+
                     if (cnt >= cnt_99 && f99 == 0) {
                          results->percentile_99 = hires_min + (double)j*dres;
                          f99 = 1;
                     }
-        
+
                     if (cnt >= cnt_999 && f999 == 0) {
                          results->percentile_999 = hires_min + (double)j*dres;
                          f999 = 1;
@@ -677,6 +707,9 @@ int create_perf_filename(CommTest_t req_test, CommTest_t other_test, int isbasel
      case A2A_CONGESTOR:
           snprintf(othern, ol, "_with_a2a_congestor");
           break;
+     case ALLREDUCE_CONGESTOR:
+          snprintf(othern, ol, "_with_allreduce_congestor");
+          break;
      case P2P_INCAST_CONGESTOR:
           snprintf(othern, ol, "_with_p2p_incast_congestor");
           break;
@@ -724,6 +757,9 @@ int create_perf_filename(CommTest_t req_test, CommTest_t other_test, int isbasel
      case A2A_CONGESTOR:
           snprintf(*fname, fl, "a2a_congestor%s%s.%s", bases, othern, suffix);
           break;
+     case ALLREDUCE_CONGESTOR:
+          snprintf(*fname, fl, "allreduce_congestor%s%s.%s", bases, othern, suffix);
+          break;
      case P2P_INCAST_CONGESTOR:
           snprintf(*fname, fl, "p2p_incast_congestor%s%s.%s", bases, othern, suffix);
           break;
@@ -744,7 +780,7 @@ int create_perf_filename(CommTest_t req_test, CommTest_t other_test, int isbasel
 }
 
 /* create a string record of the performance a rank sees on a test */
-int summarize_pairs_performance(CommConfig_t *config, MPI_Comm comm, char *lnode, char *rnode, double *myperf_vals, 
+int summarize_pairs_performance(CommConfig_t *config, MPI_Comm comm, char *lnode, char *rnode, double *myperf_vals,
                                 int nsamps, int m, int r, CommTest_t req_test, CommTest_t other_test)
 {
      double minv, maxv, avgv;
@@ -756,7 +792,7 @@ int summarize_pairs_performance(CommConfig_t *config, MPI_Comm comm, char *lnode
 #ifndef VERBOSE
      return 0;
 #else
-  
+
      mpi_error(MPI_Comm_size(comm, &nranks));
      mpi_error(MPI_Comm_rank(comm, &myrank));
 
@@ -853,7 +889,7 @@ int summarize_pairs_performance(CommConfig_t *config, MPI_Comm comm, char *lnode
      snprintf(perf_str, pl, "%20.20s    %8i    %8i    %20.20s    %20.20s    %20.20s    %6i    %6i    %10s    %10s    %8i    %20.5f    %20.5f    %20.5f\n",
               stime, config->myrank, config->mynode_rank, config->mynode->host_name, lnode, rnode, m, r, tname, tunits, nsamps, minv, maxv, avgv);
 
-     /* gather all pairs perf results to global_comm rank 0 and write them to a file */      
+     /* gather all pairs perf results to global_comm rank 0 and write them to a file */
      mpi_error(MPI_Gather(perf_str, pl, MPI_CHAR, all_perf_strs, pl, MPI_CHAR, 0, comm));
      if (myrank == 0) {
 
@@ -880,7 +916,7 @@ int summarize_pairs_performance(CommConfig_t *config, MPI_Comm comm, char *lnode
 }
 
 /* create a file with the distribution of hires measurements */
-int write_distribution(CommTest_t req_test, CommTest_t other_test, int isbaseline, 
+int write_distribution(CommTest_t req_test, CommTest_t other_test, int isbaseline,
                        CommResults_t * results, char * tname, char * tunits)
 {
      int i;

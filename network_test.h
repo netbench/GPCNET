@@ -66,12 +66,15 @@ typedef struct CommConfig_st {
      double *p2p_buffer;
      double *a2a_sbuffer;
      double *a2a_rbuffer;
+     double *ar_sbuffer;
+     double *ar_rbuffer;
      MPI_Win rma_window;
      MPI_Win rma_a2a_window;
      int bw_outstanding;
      int p2pbw_cnt;
      int rmabw_cnt;
      int a2a_cnt;
+     int ar_cnt;
      int incast_cnt;
      int bcast_cnt;
      int myrank;
@@ -94,6 +97,7 @@ typedef enum CommTest_st
      P2P_BCAST_CONGESTOR,
      RMA_INCAST_CONGESTOR,
      RMA_BCAST_CONGESTOR,
+     ALLREDUCE_CONGESTOR,
      TEST_CONGESTORS,
      TEST_NULL
 } CommTest_t;
@@ -114,45 +118,61 @@ typedef struct CommResults_st {
 } CommResults_t;
 
 /* random_ring.c */
-int random_ring(CommConfig_t *config, int norand, int n_measurements, int nrands, int niters, CommTest_t req_test, CommTest_t other_test,
+int random_ring(CommConfig_t *config, int norand, int n_measurements, int nrands, int niters,
+                CommTest_t req_test, CommTest_t other_test,
                 MPI_Comm comm, MPI_Comm global_comm, CommResults_t *results);
 int finalize_mpi(CommConfig_t *config, CommNodes_t *nodes);
-int p2p_latency(CommConfig_t *config, int lneighbor, int rneighbor, int niters, MPI_Comm global_comm, MPI_Comm comm, double *perfvals, double *perfval);
-int p2p_bandwidth(CommConfig_t *config, int lneighbor, int rneighbor, int niters, MPI_Comm global_comm, MPI_Comm comm, double *perfvals, double *perfval);
-int rma_latency(CommConfig_t *config, int lneighbor, int rneighbor, int niters, MPI_Comm global_comm, MPI_Comm comm, double *perfvals, double *perfval);
-int rma_bandwidth(CommConfig_t *config, int lneighbor, int rneighbor, int niters, MPI_Comm global_comm, MPI_Comm comm, double *perfvals, double *perfval);
-int p2p_neighbors(CommConfig_t *config, int lneighbor, int rneighbor, int niters, MPI_Comm global_comm, MPI_Comm comm, double *perfvals, double *perfval);
+int p2p_latency(CommConfig_t *config, int lneighbor, int rneighbor, int niters,
+                MPI_Comm global_comm, MPI_Comm comm, double *perfvals, double *perfval);
+int p2p_bandwidth(CommConfig_t *config, int lneighbor, int rneighbor, int niters,
+                  MPI_Comm global_comm, MPI_Comm comm, double *perfvals, double *perfval);
+int rma_latency(CommConfig_t *config, int lneighbor, int rneighbor, int niters,
+                MPI_Comm global_comm, MPI_Comm comm, double *perfvals, double *perfval);
+int rma_bandwidth(CommConfig_t *config, int lneighbor, int rneighbor, int niters,
+                  MPI_Comm global_comm, MPI_Comm comm, double *perfvals, double *perfval);
+int p2p_neighbors(CommConfig_t *config, int lneighbor, int rneighbor, int niters,
+                  MPI_Comm global_comm, MPI_Comm comm, double *perfvals, double *perfval);
 
 /* collectives.c */
-int a2a_test(CommConfig_t *config, int ntests, int base_niters, MPI_Comm a2acomm, MPI_Comm global_comm, CommResults_t * results);
-int allreduce_test(CommConfig_t *config, int ntests, int niters, MPI_Comm comm, MPI_Comm global_comm, CommResults_t * results);
+int a2a_test(CommConfig_t *config, int ntests, int base_niters, MPI_Comm a2acomm,
+             MPI_Comm global_comm, CommResults_t * results);
+int allreduce_test(CommConfig_t *config, int ntests, int niters, MPI_Comm comm,
+                   MPI_Comm global_comm, CommResults_t * results);
 
 /* subcomms.c */
-int split_subcomms(int nsubcomms, MPI_Comm local_comm, MPI_Comm base_comm, int *color, MPI_Comm *test_comm, MPI_Comm *subcomm);
-int node_slice_subcomms(CommConfig_t *config, CommNodes_t *nodes, int *node_list, int list_size, MPI_Comm *subcomm);
-int congestion_subcomms(CommConfig_t *config, CommNodes_t *nodes, int *congestor_node_list, int list_size, int *am_congestor, MPI_Comm *subcomm);
+int split_subcomms(int nsubcomms, MPI_Comm local_comm, MPI_Comm base_comm, int *color,
+                   MPI_Comm *test_comm, MPI_Comm *subcomm);
+int node_slice_subcomms(CommConfig_t *config, CommNodes_t *nodes, int *node_list,
+                        int list_size, MPI_Comm *subcomm);
+int congestion_subcomms(CommConfig_t *config, CommNodes_t *nodes, int *congestor_node_list,
+                        int list_size, int *am_congestor, MPI_Comm *subcomm);
 
 /* utils.c */
 void die(char *errmsg);
 void mpi_error(int ierr);
-int init_mpi(CommConfig_t *config, CommNodes_t *nodes, int *argc, char ***argv, int rmacnt, int p2pcnt, int a2acnt, int incastcnt, 
-             int bcastcnt, int bw_outstanding);
+int init_mpi(CommConfig_t *config, CommNodes_t *nodes, int *argc, char ***argv, int rmacnt,
+             int p2pcnt, int a2acnt, int incastcnt, int bcastcnt, int allreducecnt, int bw_outstanding);
 int init_rma(CommConfig_t *config, MPI_Comm comm);
 int init_rma_a2a(CommConfig_t *config, MPI_Comm comm);
 int a2a_buffers(CommConfig_t *config, MPI_Comm subcomm);
+int allreduce_buffers(CommConfig_t *config, MPI_Comm comm);
 void shuffle(int *list, int size, int seed, int call);
-int print_results(CommConfig_t *config, int localrank, int havedata, int from_min, char *name, char *units, CommResults_t * results);
+int print_results(CommConfig_t *config, int localrank, int havedata, int from_min,
+                  char *name, char *units, CommResults_t * results);
 int print_comparison_results(CommConfig_t *config, int localrank, int havedata, int from_min,
                              char *name, CommResults_t * base_results, CommResults_t * results);
 int print_header(CommConfig_t *config, int type, CommTest_t ctype);
-int summarize_performance(CommConfig_t *config, double *myperf_vals_hires, double *myperf_vals, int total_vals_hires, int total_vals, 
+int summarize_performance(CommConfig_t *config, double *myperf_vals_hires,
+                          double *myperf_vals, int total_vals_hires, int total_vals,
                           int from_min, MPI_Comm comm, CommResults_t *results);
-int write_distribution(CommTest_t req_test, CommTest_t other_test, int isbaseline, CommResults_t * results, char * tname, char * tunits);
-int summarize_pairs_performance(CommConfig_t *config, MPI_Comm comm, char *lnode, char *rnode, double *myperf_vals, int nsamps, int m, int r, 
+int write_distribution(CommTest_t req_test, CommTest_t other_test, int isbaseline,
+                       CommResults_t * results, char * tname, char * tunits);
+int summarize_pairs_performance(CommConfig_t *config, MPI_Comm comm, char *lnode,
+                                char *rnode, double *myperf_vals, int nsamps, int m, int r,
                                 CommTest_t req_test, CommTest_t other_test);
 
 /* congestors.c */
-int congestor(CommConfig_t *config, int n_measurements, int niters, MPI_Comm test_comm, CommTest_t req_test, 
+int congestor(CommConfig_t *config, int n_measurements, int niters, MPI_Comm test_comm, CommTest_t req_test,
               int record_perf, double * perfvals, double * perfval, int *real_n_measurements);
 int p2p_incast_congestor(CommConfig_t *config, MPI_Comm comm, int myrank, int comm_ranks);
 int a2a_congestor(CommConfig_t *config, MPI_Comm comm, int myrank, int comm_ranks);

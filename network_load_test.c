@@ -20,7 +20,7 @@
 #include <math.h>
 #include <network_test.h>
 
-#define VERSION 1.1
+#define VERSION 1.2
 
 #define NUM_NETWORK_TESTS 3
 #define NUM_CONGESTOR_TESTS 4
@@ -43,11 +43,15 @@
 #define A2A_BASE_NODES 32
 #define INCAST_BASE_NODES 32
 #define BCAST_BASE_NODES 32
+#define ALLREDUCE_BASE_NODES 32
 
 /* tuning for congestor tests */
 #define A2A_MSG_COUNT 512
 #define A2A_TESTS 256
 #define A2A_BASELINE_ITERS 512
+#define ALLREDUCE_MSG_COUNT 819200
+#define ALLREDUCE_TESTS 256
+#define ALLREDUCE_BASELINE_ITERS 512
 #define INCAST_MSG_COUNT 512
 #define INCAST_TESTS 256
 #define INCAST_BASELINE_ITERS 512
@@ -120,7 +124,7 @@ int network_test_setup(CommTest_t req_test, int *ntests, int *nrands, int *niter
      return 0;
 }
 
-int run_network_tests(CommConfig_t *config, int ncong_tests, MPI_Comm test_comm, 
+int run_network_tests(CommConfig_t *config, int ncong_tests, MPI_Comm test_comm,
                       MPI_Comm local_comm, MPI_Comm global_comm)
 {
      int itest, ctest, myrank, niters, ntests, nrands;
@@ -136,7 +140,7 @@ int run_network_tests(CommConfig_t *config, int ncong_tests, MPI_Comm test_comm,
      if (results_base == NULL || results == NULL) {
           die("Failed to allocate results in run_network_tests()\n");
      }
-    
+
      /* gather the baseline performance */
      print_header(config, 0, 0);
      for (itest = 0; itest < NUM_NETWORK_TESTS; itest++) {
@@ -144,12 +148,12 @@ int run_network_tests(CommConfig_t *config, int ncong_tests, MPI_Comm test_comm,
           results_base[itest].distribution = NULL;
           network_test_setup(network_tests_list[itest], &ntests, &nrands, &niters, tname, tunits);
           if (network_tests_list[itest] != ALLREDUCE_LATENCY) {
-               random_ring(config, 0, ntests, nrands, niters, network_tests_list[itest], 
+               random_ring(config, 0, ntests, nrands, niters, network_tests_list[itest],
                            TEST_NULL, test_comm, local_comm, &results_base[itest]);
           } else {
                allreduce_test(config, ntests, niters, test_comm, local_comm, &results_base[itest]);
           }
-    
+
           int from_min = 0;
           if (network_tests_list[itest] == P2P_LATENCY || network_tests_list[itest] == RMA_LATENCY ||
               network_tests_list[itest] == ALLREDUCE_LATENCY) from_min = 1;
@@ -183,14 +187,14 @@ int run_network_tests(CommConfig_t *config, int ncong_tests, MPI_Comm test_comm,
 #if VERBOSE
           print_header(config, 2, network_tests_list[itest]);
 #endif
-      
+
           /* allow the congestors to get started and then release us once they are loading the network */
           mpi_error(MPI_Ibarrier(global_comm, &req));
           mpi_error(MPI_Wait(&req, MPI_STATUS_IGNORE));
 
           network_test_setup(network_tests_list[itest], &ntests, &nrands, &niters, tname, tunits);
           if (network_tests_list[itest] != ALLREDUCE_LATENCY) {
-               random_ring(config, 0, ntests, nrands, niters, network_tests_list[itest], 
+               random_ring(config, 0, ntests, nrands, niters, network_tests_list[itest],
                            TEST_CONGESTORS, test_comm, local_comm, &results[itest]);
           } else {
                allreduce_test(config, ntests, niters, test_comm, local_comm, &results[itest]);
@@ -204,7 +208,7 @@ int run_network_tests(CommConfig_t *config, int ncong_tests, MPI_Comm test_comm,
           if (network_tests_list[itest] == P2P_LATENCY || network_tests_list[itest] == RMA_LATENCY ||
               network_tests_list[itest] == ALLREDUCE_LATENCY) from_min = 1;
           print_results(config, myrank, 1, from_min, tname, tunits, &results[itest]);
-      
+
           if (myrank == 0) {
                write_distribution(network_tests_list[itest], TEST_CONGESTORS, 0, &results[itest], tname, tunits);
           }
@@ -222,7 +226,7 @@ int run_network_tests(CommConfig_t *config, int ncong_tests, MPI_Comm test_comm,
      print_header(config, 3, 0);
      for (itest = 0; itest < NUM_NETWORK_TESTS; itest++) {
 
-          if (network_tests_list[itest] == P2P_LATENCY || network_tests_list[itest] == P2P_NEIGHBORS || 
+          if (network_tests_list[itest] == P2P_LATENCY || network_tests_list[itest] == P2P_NEIGHBORS ||
               network_tests_list[itest] == ALLREDUCE_LATENCY) {
                network_test_setup(network_tests_list[itest], &ntests, &nrands, &niters, tname, tunits);
 
@@ -237,8 +241,8 @@ int run_network_tests(CommConfig_t *config, int ncong_tests, MPI_Comm test_comm,
      return 0;
 }
 
-int congestor_test_setup(CommTest_t req_test, int a2aiters, int incastiters, int bcastiters, 
-                         int a2atests, int incasttests, int bcasttests, 
+int congestor_test_setup(CommTest_t req_test, int a2aiters, int incastiters, int bcastiters, int allreduceiters,
+                         int a2atests, int incasttests, int bcasttests, int allreducetests,
                          int *ntests, int *niters, char *tname, char *tunits)
 {
      int nl=64;
@@ -248,6 +252,12 @@ int congestor_test_setup(CommTest_t req_test, int a2aiters, int incastiters, int
           *ntests = a2atests;
           *niters = a2aiters;
           snprintf(tname, nl, "%s (%i B)", "Alltoall", (int)(sizeof(double)*A2A_MSG_COUNT));
+          snprintf(tunits, nl, "%s", "MiB/s/rank");
+          break;
+     case ALLREDUCE_CONGESTOR:
+          *ntests = allreducetests;
+          *niters = allreduceiters;
+          snprintf(tname, nl, "%s (%i B)", "Allreduce", (int)(sizeof(double)*ALLREDUCE_MSG_COUNT));
           snprintf(tunits, nl, "%s", "MiB/s/rank");
           break;
      case P2P_INCAST_CONGESTOR:
@@ -281,11 +291,11 @@ int congestor_test_setup(CommTest_t req_test, int a2aiters, int incastiters, int
      return 0;
 }
 
-int run_congestor_tests(CommConfig_t *config, int nntwk_tests, int congestor_set, MPI_Comm congestor_comm, 
+int run_congestor_tests(CommConfig_t *config, int nntwk_tests, int congestor_set, MPI_Comm congestor_comm,
                         MPI_Comm test_comm, MPI_Comm local_comm, MPI_Comm global_comm)
 {
      int i, iteration, itest, ibar_cmplt, test_cmplt, ctest, niters, ntests, real_ntests, measure_perf;
-     int a2aiters, incast_iters, bcast_iters;
+     int a2aiters, allreduce_iters, incast_iters, bcast_iters;
      int myrank, nranks, test_myrank, test_nranks, cong_myrank, cong_nranks;
      CongestorResults_t congestor_perf;
      CommResults_t results, nullrslt;
@@ -304,25 +314,37 @@ int run_congestor_tests(CommConfig_t *config, int nntwk_tests, int congestor_set
      /* determine the number of iterations per pass for a2a from a base setting */
      a2aiters = A2A_BASELINE_ITERS;
      if (cong_nranks > A2A_BASE_NODES) {
-          a2aiters = (int)((float)a2aiters *  (float)A2A_BASE_NODES / (float)cong_nranks);
+          a2aiters = (int)((float)a2aiters * (float)A2A_BASE_NODES / (float)cong_nranks);
           a2aiters = (a2aiters < 1) ? 1 : a2aiters;
      }
 
+     /* we roughly assume the allreduce algorithm behaves like a ring or recursive halving /
+        recursive doubling in that the amount of data any rank sends saturates at 2 the message
+        length.  In reality, message size drops per op and there is more overhead with scale.
+        As a crude model we'll put a weak reduction in iters to account for this. */
+     allreduce_iters = ALLREDUCE_BASELINE_ITERS;
+     if (cong_nranks > ALLREDUCE_BASE_NODES) {
+          allreduce_iters = (int)((float)allreduce_iters / (1.0 + log((float)cong_nranks / (float)INCAST_BASE_NODES)));
+          allreduce_iters = (allreduce_iters < 1) ? 1 : allreduce_iters;
+     }
+
+     /* reduce iters for incast linearly */
      incast_iters = INCAST_BASELINE_ITERS;
      if (cong_nranks > INCAST_BASE_NODES) {
-          incast_iters = (int)((float)incast_iters *  (float)INCAST_BASE_NODES / (float)cong_nranks);
+          incast_iters = (int)((float)incast_iters * (float)INCAST_BASE_NODES / (float)cong_nranks);
           incast_iters = (incast_iters < 1) ? 1 : incast_iters;
      }
 
+     /* reduce iters for bcast linearly */
      bcast_iters = BCAST_BASELINE_ITERS;
      if (cong_nranks > BCAST_BASE_NODES) {
-          incast_iters = (int)((float)bcast_iters *  (float)BCAST_BASE_NODES / (float)cong_nranks);
+          incast_iters = (int)((float)bcast_iters * (float)BCAST_BASE_NODES / (float)cong_nranks);
           incast_iters = (bcast_iters < 1) ? 1 : incast_iters;
      }
 
      /* allocate space to the various performance tracking arrays */
-     congestor_test_setup(congestor_tests_list[congestor_set], a2aiters, incast_iters, bcast_iters, 
-                          A2A_TESTS, INCAST_TESTS, BCAST_TESTS, &ntests,
+     congestor_test_setup(congestor_tests_list[congestor_set], a2aiters, incast_iters, bcast_iters,
+                          allreduce_iters, A2A_TESTS, INCAST_TESTS, BCAST_TESTS, ALLREDUCE_TESTS, &ntests,
                           &niters, tname, tunits);
      congestor_perf.baseline_perf_hires = malloc(sizeof(double) * ntests * niters);
      congestor_perf.perf_hires          = malloc(sizeof(double) * ntests * niters);
@@ -334,6 +356,8 @@ int run_congestor_tests(CommConfig_t *config, int nntwk_tests, int congestor_set
      if (congestor_tests_list[congestor_set] == A2A_CONGESTOR ||
          congestor_tests_list[congestor_set] == P2P_INCAST_CONGESTOR) {
           a2a_buffers(config, congestor_comm);
+     } else if (congestor_tests_list[congestor_set] == ALLREDUCE_CONGESTOR) {
+         allreduce_buffers(config, congestor_comm);
      } else if (congestor_tests_list[congestor_set] == RMA_INCAST_CONGESTOR) {
           init_rma_a2a(config, congestor_comm);
      }
@@ -353,15 +377,15 @@ int run_congestor_tests(CommConfig_t *config, int nntwk_tests, int congestor_set
 
           if (ctest == congestor_set) {
 
-               congestor_test_setup(congestor_tests_list[ctest], a2aiters, incast_iters, bcast_iters, 
-                                    A2A_TESTS, INCAST_TESTS, BCAST_TESTS, &ntests,
-                                    &niters, tname, tunits);
+               congestor_test_setup(congestor_tests_list[ctest], a2aiters, incast_iters, bcast_iters,
+                                    allreduce_iters, A2A_TESTS, INCAST_TESTS, BCAST_TESTS, ALLREDUCE_TESTS,
+                                    &ntests, &niters, tname, tunits);
 
-               congestor(config, ntests, niters, congestor_comm, congestor_tests_list[ctest], 1, 
+               congestor(config, ntests, niters, congestor_comm, congestor_tests_list[ctest], 1,
                          congestor_perf.baseline_perf_hires, &congestor_perf.baseline_perf, &real_ntests);
 
-               summarize_performance(config, congestor_perf.baseline_perf_hires, 
-                                     &congestor_perf.baseline_perf, real_ntests*niters, 1, 
+               summarize_performance(config, congestor_perf.baseline_perf_hires,
+                                     &congestor_perf.baseline_perf, real_ntests*niters, 1,
                                      0, test_comm, &results);
 
                print_results(config, test_myrank, 1, 0, tname, tunits, &results);
@@ -371,7 +395,7 @@ int run_congestor_tests(CommConfig_t *config, int nntwk_tests, int congestor_set
                mpi_error(MPI_Barrier(local_comm));
 
           } else {
-    
+
                /* let the ranks in the given congestor test run in isolation */
                print_results(config, test_myrank, 0, 0, " ", " ", &nullrslt);
                mpi_error(MPI_Barrier(local_comm));
@@ -395,8 +419,8 @@ int run_congestor_tests(CommConfig_t *config, int nntwk_tests, int congestor_set
 #endif
           ctest = congestor_set;
 
-          congestor_test_setup(congestor_tests_list[ctest], a2aiters, incast_iters, bcast_iters, 
-                               A2A_TESTS, INCAST_TESTS, BCAST_TESTS, &ntests,
+          congestor_test_setup(congestor_tests_list[ctest], a2aiters, incast_iters, bcast_iters, allreduce_iters,
+                               A2A_TESTS, INCAST_TESTS, BCAST_TESTS, ALLREDUCE_TESTS, &ntests,
                                &niters, tname, tunits);
 
           test_cmplt = 0;
@@ -414,14 +438,14 @@ int run_congestor_tests(CommConfig_t *config, int nntwk_tests, int congestor_set
                     mpi_error(MPI_Wait(&req, MPI_STATUS_IGNORE));
                }
 
-               congestor(config, ntests, niters, congestor_comm, congestor_tests_list[ctest], measure_perf, 
+               congestor(config, ntests, niters, congestor_comm, congestor_tests_list[ctest], measure_perf,
                          congestor_perf.perf_hires, &congestor_perf.perf, &real_ntests);
 
                /* we have done a non-warmup test so we can start our ibarrier */
                if (iteration == 1) {
                     mpi_error(MPI_Ibarrier(global_comm, &req));
                }
-        
+
                /* if we have started our ibarrier, use it to check if the network test
                   has finished yet.  must be consistent within our congestion test
                   communicator */
@@ -430,7 +454,7 @@ int run_congestor_tests(CommConfig_t *config, int nntwk_tests, int congestor_set
                     /* wait on any outstanding reduction */
                     if (areq != MPI_REQUEST_NULL) {
                          mpi_error(MPI_Wait(&areq, MPI_STATUS_IGNORE));
-          
+
                          /* if the network test is done we can exit this loop */
                          if (ibar_cmplt) test_cmplt = 1;
                     }
@@ -444,22 +468,22 @@ int run_congestor_tests(CommConfig_t *config, int nntwk_tests, int congestor_set
                          }
                          mpi_error(MPI_Iallreduce(MPI_IN_PLACE, &ibar_cmplt, 1, MPI_INT, MPI_MIN, test_comm, &areq));
                     }
-            
+
                }
-        
+
                /* we have done warmup comms so let's release the network tests */
                if (iteration == 0) {
                     mpi_error(MPI_Ibarrier(global_comm, &req));
                }
                iteration++;
           }
-      
+
           /* print out the network test results */
           print_results(config, myrank, 0, 0, " ", " ", &nullrslt);
 
           /* we must delay performance summary until after the network tests is done otherwise
              we introduce a stall on congesting traffic from the reductions done here */
-          summarize_performance(config, congestor_perf.perf_hires, &congestor_perf.perf, real_ntests*niters, 1, 
+          summarize_performance(config, congestor_perf.perf_hires, &congestor_perf.perf, real_ntests*niters, 1,
                                 0, test_comm, &results);
           if (test_myrank == 0) {
                write_distribution(congestor_tests_list[ctest], network_tests_list[itest], 0, &results, tname, tunits);
@@ -495,9 +519,9 @@ int run_congestor_tests(CommConfig_t *config, int nntwk_tests, int congestor_set
      return 0;
 }
 
-int build_subcomms(int ncongestor_tests, CommConfig_t *config, CommNodes_t *nodes, int *am_congestor, int *congestor_set, 
+int build_subcomms(int ncongestor_tests, CommConfig_t *config, CommNodes_t *nodes, int *am_congestor, int *congestor_set,
                    MPI_Comm *congestor_comm, MPI_Comm *test_comm, MPI_Comm *local_comm, int *nt_nodes, int *nc_nodes)
-{  
+{
      int i, j, ncongestor_nodes, ntest_nodes, gmyrank;
      int *allnodes, *congestor_nodes, *test_nodes;
      MPI_Comm null_comm, tmp_comm;
@@ -579,7 +603,7 @@ int build_subcomms(int ncongestor_tests, CommConfig_t *config, CommNodes_t *node
                }
           }
           fclose(fp);
-    
+
           fp = fopen("congestors_nodes_congestion.dat", "w+");
           for (i = 0; i < ncongestor_nodes; i++) {
                CommNode_t *tmp = nodes->nodes_head;
@@ -591,7 +615,7 @@ int build_subcomms(int ncongestor_tests, CommConfig_t *config, CommNodes_t *node
                }
           }
           fclose(fp);
-    
+
           fp = fopen("network_nodes_congestion.dat", "w+");
           for (i = 0; i < ntest_nodes; i++) {
                CommNode_t *tmp = nodes->nodes_head;
@@ -619,9 +643,9 @@ int main(int argc, char* argv[])
      MPI_Comm local_comm, test_comm, congestor_comm;
      int i, am_congestor, congestor_set, nt_nodes, nc_nodes;
 
-     init_mpi(&test_config, &nodes, &argc, &argv, BW_MSG_COUNT, BW_MSG_COUNT, A2A_MSG_COUNT, 
-              INCAST_MSG_COUNT, BCAST_MSG_COUNT, BW_OUTSTANDING);
-     build_subcomms(NUM_CONGESTOR_TESTS, &test_config, &nodes, &am_congestor, &congestor_set, &congestor_comm, 
+     init_mpi(&test_config, &nodes, &argc, &argv, BW_MSG_COUNT, BW_MSG_COUNT, A2A_MSG_COUNT,
+              INCAST_MSG_COUNT, BCAST_MSG_COUNT, ALLREDUCE_MSG_COUNT, BW_OUTSTANDING);
+     build_subcomms(NUM_CONGESTOR_TESTS, &test_config, &nodes, &am_congestor, &congestor_set, &congestor_comm,
                     &test_comm, &local_comm, &nt_nodes, &nc_nodes);
      if (am_congestor) {
           init_rma(&test_config, congestor_comm);
@@ -659,6 +683,6 @@ int main(int argc, char* argv[])
      }
 
      finalize_mpi(&test_config, &nodes);
-  
+
      return 0;
 }

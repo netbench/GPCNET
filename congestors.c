@@ -151,7 +151,7 @@ int congestor(CommConfig_t *config, int n_measurements, int niters, MPI_Comm tes
      timeout_t1 = MPI_Wtime();
      timeout    = 0.;
      mpi_error(MPI_Iallreduce(MPI_IN_PLACE, &timeout, 1, MPI_DOUBLE, MPI_MAX, test_comm, &req));
-     *real_n_measurements = 0;
+     if (record_perf) *real_n_measurements = 0;
      bt = 0.;
      for (m = 0; m < n_measurements; m++) {
 
@@ -194,7 +194,7 @@ int congestor(CommConfig_t *config, int n_measurements, int niters, MPI_Comm tes
           }
           bt2 = MPI_Wtime();
           bt += bt2 - bt1;
-          (*real_n_measurements)++;
+          if (record_perf) (*real_n_measurements)++;
      }
      if (req != MPI_REQUEST_NULL) {
           mpi_error(MPI_Wait(&req, MPI_STATUS_IGNORE));

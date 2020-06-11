@@ -7,6 +7,8 @@ network_test: Full system network tests in random and natural ring, alltoall
 
 network_load_test: Select full system network tests run with four congestors to
                    measure network congestion or contention
+                   
+The latest version is 1.2.
 
 # Compile #
 
@@ -108,10 +110,11 @@ Please contact any of the following people if you have any questions.
 
 * Taylor Groves (tgroves@lbl.gov)
 * Sudheer Chunduri (sudheer@anl.gov)
-* Pete Mendygral (pjm@cray.com)
+* Pete Mendygral (peter.mendygral@hpe.com)
 
 # ChangeLog #
 
+Version 1.2
 4/3/2020: Adding in a new congestor type that mimics the allreduce operations for DL training.  It is based on
           the paper presented on at 2019 Rice Data Science Conference
           https://2019datascienceconference.sched.com/event/UYuZ/sharing-resources-in-the-age-of-deep-learning

@@ -112,6 +112,12 @@ Please contact any of the following people if you have any questions.
 * Sudheer Chunduri (sudheer@anl.gov)
 * Pete Mendygral (pmendygr@amazon.com)
 
+# References #
+
+* https://dl.acm.org/doi/10.1145/3295500.3356215. Sudheer Chunduri, Taylor Groves, Peter Mendygral, Brian Austin, Jacob Balma, Krishna Kandalla, Kalyan Kumaran, Glenn Lockwood, Scott Parker, Steven Warren, Nathan Wichmann, and Nicholas Wright. 2019. GPCNeT: Designing a benchmark suite for inducing and measuring contention in HPC networks. In Proceedings of the International Conference for High Performance Computing, Networking, Storage and Analysis (SC ‘19). Association for Computing Machinery, New York, NY, USA, Article 42, 1-33.
+
+* https://dl.acm.org/doi/10.1145/3295500.3356166. Christopher Zimmer, Scott Atchley, Ramesh Pankajakshan, Brian E. Smith, Ian Karlin, Matthew L. Leininger, Adam Bertsch, Brian S. Ryujin, Jason Burmark, André Walker-Loud, M. A. Clark, and Olga Pearce. 2019. An evaluation of the CORAL interconnects. In Proceedings of the International Conference for High Performance Computing, Networking, Storage and Analysis (SC ‘19). Association for Computing Machinery, New York, NY, USA, Article 39, 1-18.
+
 # ChangeLog #
 
 Version 1.2

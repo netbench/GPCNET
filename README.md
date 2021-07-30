@@ -8,7 +8,7 @@ network_test: Full system network tests in random and natural ring, alltoall
 network_load_test: Select full system network tests run with four congestors to
                    measure network congestion or contention
                    
-The latest version is 1.2.
+The latest version is 1.3.
 
 # Compile #
 

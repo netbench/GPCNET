@@ -20,7 +20,7 @@
 #include <math.h>
 #include <network_test.h>
 
-#define VERSION 1.2
+#define VERSION 1.3
 
 #define NUM_NETWORK_TESTS 3
 #define NUM_CONGESTOR_TESTS 4

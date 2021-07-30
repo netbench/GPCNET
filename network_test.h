@@ -26,12 +26,13 @@
 #define RSEED 8675309
 
 /* these establish the size of the table written to STDOUT */
-#ifdef VERBOSE
+/*#ifdef VERBOSE
 #define TBLSIZE 140
 #else
 #define TBLSIZE 80
 #endif
 char table_outerbar[TBLSIZE+1], table_innerbar[TBLSIZE+1], print_buffer[TBLSIZE+1];
+*/
 
 /* define a timeout for how long a test can run */
 #define TEST_TIMEOUT_SECS 10.0

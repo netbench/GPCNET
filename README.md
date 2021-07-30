@@ -110,7 +110,7 @@ Please contact any of the following people if you have any questions.
 
 * Taylor Groves (tgroves@lbl.gov)
 * Sudheer Chunduri (sudheer@anl.gov)
-* Pete Mendygral (pmendygr@amazon.com)
+* Pete Mendygral (pete.mendygral@hpe.com)
 
 # References #
 
